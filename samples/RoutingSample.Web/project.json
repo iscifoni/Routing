@@ -12,8 +12,11 @@
     "web": "RoutingSample.Web"
   },
   "frameworks": {
-    "dnx451": {},
+    "net451": {},
     "netstandardapp1.5": {
+      "dependencies": {
+        "NETStandard.Library": "1.5.0-*"
+      },
       "imports": [
         "dnxcore50",
         "portable-net451+win8"
