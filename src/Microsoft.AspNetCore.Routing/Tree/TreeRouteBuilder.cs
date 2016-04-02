@@ -10,16 +10,14 @@ namespace Microsoft.AspNetCore.Routing.Tree
 {
     public class TreeRouteBuilder
     {
-        private readonly IRouter _target;
         private readonly List<TreeRouteLinkGenerationEntry> _generatingEntries;
         private readonly List<TreeRouteMatchingEntry> _matchingEntries;
 
         private readonly ILogger _logger;
         private readonly ILogger _constraintLogger;
 
-        public TreeRouteBuilder(IRouter target, ILoggerFactory loggerFactory)
+        public TreeRouteBuilder(ILoggerFactory loggerFactory)
         {
-            _target = target;
             _generatingEntries = new List<TreeRouteLinkGenerationEntry>();
             _matchingEntries = new List<TreeRouteMatchingEntry>();
 
@@ -37,7 +35,7 @@ namespace Microsoft.AspNetCore.Routing.Tree
             _matchingEntries.Add(entry);
         }
 
-        public TreeRouter Build(int version)
+        public TreeRouter Build(int version = 0)
         {
             var trees = new Dictionary<int, UrlMatchingTree>();
 
@@ -54,7 +52,6 @@ namespace Microsoft.AspNetCore.Routing.Tree
             }
 
             return new TreeRouter(
-                _target,
                 trees.Values.OrderBy(tree => tree.Order).ToArray(),
                 _generatingEntries,
                 _logger,

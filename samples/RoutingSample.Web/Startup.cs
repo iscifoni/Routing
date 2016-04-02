@@ -1,13 +1,24 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Reflection;
+using System.Text.Encodings.Web;
 using System.Threading;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Dispatching;
+using Microsoft.AspNetCore.Routing.Internal;
+using Microsoft.AspNetCore.Routing.Template;
+using Microsoft.AspNetCore.Routing.Tree;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.ObjectPool;
 
 namespace RoutingSample.Web
 {
@@ -16,50 +27,95 @@ namespace RoutingSample.Web
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddRouting();
+
+            services
+                .AddEntityFrameworkInMemoryDatabase()
+                .AddDbContext<PetStore.PetStoreContext>(options =>
+                {
+                    options.UseInMemoryDatabase();
+                });
         }
 
-        public void Configure(IApplicationBuilder app)
+        public void Configure(IApplicationBuilder app, ILoggerFactory loggerFactory, ObjectPoolProvider poolProvider)
         {
-            var endpoint1 = new RouteHandler((c) =>
-            {
-                return c.Response.WriteAsync($"match1, route values - {string.Join(", ", c.GetRouteData().Values)}");
-            });
+            var routeBuilder = new TreeRouteBuilder(loggerFactory);
 
-            var endpoint2 = new RouteHandler((c) => c.Response.WriteAsync("Hello, World!"));
-
-            var routeBuilder = new RouteBuilder(app)
+            var template = TemplateParser.Parse("pet");
+            var endpoints = new List<MethodEndpointDescriptor>()
             {
-                DefaultHandler = endpoint1,
+                new MethodEndpointDescriptor()
+                {
+                    Constraints = new List<IEndpointConstraint>()
+                    {
+                        new HttpMethodEndpointConstraint("POST"),
+                    },
+                    Method = typeof(PetStore.PetHandler).GetTypeInfo().GetMethod(nameof(PetStore.PetHandler.AddPet)),
+                    RouteValues = new RouteValueDictionary(),
+                },
             };
 
-            routeBuilder.MapRoute("api/status/{item}", c => c.Response.WriteAsync($"{c.GetRouteValue("item")} is just fine."));
-            routeBuilder.MapRoute("localized/{lang=en-US}", b =>
-            {
-                b.Use(next => async (c) =>
-                {
-                    var culture = new CultureInfo((string)c.GetRouteValue("lang"));
-#if DNX451
-                    Thread.CurrentThread.CurrentCulture = culture;
-                    Thread.CurrentThread.CurrentUICulture = culture;
-#else
-                    CultureInfo.CurrentCulture = culture;
-                    CultureInfo.CurrentUICulture = culture;
-#endif
-                    await next(c);
-                });
+            var handlerFactory = new MethodEndpointHandlerFactory(typeof(PetStore.PetHandler), endpoints);
 
-                b.Run(c => c.Response.WriteAsync($"What would you do with {1000000m:C}?"));
+            routeBuilder.Add(new TreeRouteMatchingEntry()
+            {
+                RouteTemplate = template,
+                Precedence = RoutePrecedence.ComputeMatched(template),
+                Target = new RoutingDispatcher(endpoints, handlerFactory),
+                TemplateMatcher = new TemplateMatcher(template, new RouteValueDictionary()),
             });
 
-            routeBuilder.AddPrefixRoute("api/store", endpoint1);
-            routeBuilder.AddPrefixRoute("hello/world", endpoint2);
 
-            routeBuilder.MapLocaleRoute("en-US", "store/US/{action}", new { controller = "Store" });
-            routeBuilder.MapLocaleRoute("en-GB", "store/UK/{action}", new { controller = "Store" });
 
-            routeBuilder.AddPrefixRoute("", endpoint2);
+            template = TemplateParser.Parse("pet/{id}");
+            endpoints = new List<MethodEndpointDescriptor>()
+            {
+                new MethodEndpointDescriptor()
+                {
+                    Constraints = new List<IEndpointConstraint>()
+                    {
+                        new HttpMethodEndpointConstraint("GET"),
+                    },
+                    Method = typeof(PetStore.PetHandler).GetTypeInfo().GetMethod(nameof(PetStore.PetHandler.FindById)),
+                    RouteValues = new RouteValueDictionary(),
+                },
+            };
+
+            handlerFactory = new MethodEndpointHandlerFactory(typeof(PetStore.PetHandler), endpoints);
+
+            routeBuilder.Add(new TreeRouteMatchingEntry()
+            {
+                RouteTemplate = template,
+                Precedence = RoutePrecedence.ComputeMatched(template),
+                Target = new RoutingDispatcher(endpoints, handlerFactory),
+                TemplateMatcher = new TemplateMatcher(template, new RouteValueDictionary()),
+            });
+
+            routeBuilder.Add(new TreeRouteLinkGenerationEntry()
+            {
+                Binder = new TemplateBinder(
+                    UrlEncoder.Default,
+                    poolProvider.Create<UriBuildingContext>(new UriBuilderContextPooledObjectPolicy(UrlEncoder.Default)),
+                    template,
+                    new RouteValueDictionary()),
+                GenerationPrecedence = RoutePrecedence.ComputeGenerated(template),
+                Name = "FindById",
+                Template = template,
+                Target = new RoutingDispatcher(endpoints, handlerFactory),
+                RequiredLinkValues = new RouteValueDictionary(),
+            });
+
 
             app.UseRouter(routeBuilder.Build());
+        }
+
+        private void CreateDatabase(IServiceProvider services)
+        {
+            using (var serviceScope = services.GetRequiredService<IServiceScopeFactory>().CreateScope())
+            {
+                var dbContext = services.GetRequiredService<PetStore.PetStoreContext>();
+                dbContext.Database.EnsureDeleted();
+                dbContext.Database.EnsureCreated();
+            }
         }
 
         public static void Main(string[] args)
@@ -67,6 +123,7 @@ namespace RoutingSample.Web
             var host = new WebHostBuilder()
                 .UseDefaultHostingConfiguration(args)
                 .UseIISPlatformHandlerUrl()
+                .UseKestrel()
                 .UseStartup<Startup>()
                 .Build();
 

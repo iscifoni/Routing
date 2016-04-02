@@ -57,5 +57,7 @@ namespace Microsoft.AspNetCore.Routing.Tree
         /// Gets or sets the <see cref="Template"/>.
         /// </summary>
         public RouteTemplate Template { get; set; }
+
+        public IRouter Target { get; set; }
     }
 }

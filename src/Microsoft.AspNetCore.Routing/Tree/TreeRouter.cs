@@ -21,8 +21,7 @@ namespace Microsoft.AspNetCore.Routing.Tree
         // Key used by routing and action selection to match an attribute route entry to a
         // group of action descriptors.
         public static readonly string RouteGroupKey = "!__route_group";
-
-        private readonly IRouter _next;
+        
         private readonly LinkGenerationDecisionTree _linkGenerationTree;
         private readonly UrlMatchingTree[] _trees;
         private readonly IDictionary<string, TreeRouteLinkGenerationEntry> _namedEntries;
@@ -33,7 +32,6 @@ namespace Microsoft.AspNetCore.Routing.Tree
         /// <summary>
         /// Creates a new <see cref="TreeRouter"/>.
         /// </summary>
-        /// <param name="next">The next router. Invoked when a route entry matches.</param>
         /// <param name="trees">The list of <see cref="UrlMatchingTree"/> that contains the route entries.</param>
         /// <param name="linkGenerationEntries">The set of <see cref="TreeRouteLinkGenerationEntry"/>.</param>
         /// <param name="routeLogger">The <see cref="ILogger"/> instance.</param>
@@ -41,18 +39,12 @@ namespace Microsoft.AspNetCore.Routing.Tree
         /// in <see cref="RouteConstraintMatcher"/>.</param>
         /// <param name="version">The version of this route.</param>
         public TreeRouter(
-            IRouter next,
             UrlMatchingTree[] trees,
             IEnumerable<TreeRouteLinkGenerationEntry> linkGenerationEntries,
             ILogger routeLogger,
             ILogger constraintLogger,
             int version)
         {
-            if (next == null)
-            {
-                throw new ArgumentNullException(nameof(next));
-            }
-
             if (trees == null)
             {
                 throw new ArgumentNullException(nameof(trees));
@@ -73,7 +65,6 @@ namespace Microsoft.AspNetCore.Routing.Tree
                 throw new ArgumentNullException(nameof(constraintLogger));
             }
 
-            _next = next;
             _trees = trees;
             _logger = routeLogger;
             _constraintLogger = constraintLogger;
@@ -183,12 +174,12 @@ namespace Microsoft.AspNetCore.Routing.Tree
                         try
                         {
                             if (!RouteConstraintMatcher.Match(
-                                    match.Entry.Constraints,
-                                    context.RouteData.Values,
-                                    context.HttpContext,
-                                    this,
-                                    RouteDirection.IncomingRequest,
-                                    _constraintLogger))
+                                match.Entry.Constraints,
+                                context.RouteData.Values,
+                                context.HttpContext,
+                                this,
+                                RouteDirection.IncomingRequest,
+                                _constraintLogger))
                             {
                                 continue;
                             }
@@ -428,7 +419,7 @@ namespace Microsoft.AspNetCore.Routing.Tree
                 return null;
             }
 
-            var pathData = _next.GetVirtualPath(context);
+            var pathData = entry.Target.GetVirtualPath(context);
             if (pathData != null)
             {
                 // If path is non-null then the target router short-circuited, we don't expect this
