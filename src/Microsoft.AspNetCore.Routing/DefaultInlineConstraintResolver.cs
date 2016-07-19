@@ -82,7 +82,16 @@ namespace Microsoft.AspNetCore.Routing
             // No arguments - call the default constructor
             if (argumentString == null)
             {
-                return (IRouteConstraint)Activator.CreateInstance(constraintType);
+                try
+                {
+                    return (IRouteConstraint)Activator.CreateInstance(constraintType);
+                }
+                catch (Exception exception)
+                {
+                    throw new InvalidRouteException(
+                        $"An error occurred while trying to create an instance of route constraint '{constraintType.FullName}'.",
+                        exception);
+                }
             }
 
             var constraintTypeInfo = constraintType.GetTypeInfo();
