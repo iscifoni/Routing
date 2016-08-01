@@ -46,11 +46,18 @@ namespace Microsoft.AspNetCore.Routing.Tests
         public void ResolveConstraint_IntConstraintWithArgument_Throws()
         {
             // Arrange, Act & Assert
-            var ex = Assert.Throws<InvalidOperationException>(
+            var ex = Assert.Throws<RouteProcessingException>(
                 () => _constraintResolver.ResolveConstraint("int(5)"));
+
+            Assert.Equal(
+                "An error occurred while trying to create an instance of route constraint"
+                + $" '{typeof(IntRouteConstraint).FullName}'.",
+                ex.Message);
+
+            var innerException = Assert.IsType<RouteProcessingException>(ex.InnerException);
             Assert.Equal("Could not find a constructor for constraint type 'IntRouteConstraint'" +
                          " with the following number of parameters: 1.",
-                         ex.Message);
+                         innerException.Message);
         }
 
         [Fact]
@@ -276,7 +283,7 @@ namespace Microsoft.AspNetCore.Routing.Tests
             var resolver = GetInlineConstraintResolver(routeOptions);
 
             // Act & Assert
-            var ex = Assert.Throws<InvalidOperationException>(() => resolver.ResolveConstraint("custom"));
+            var ex = Assert.Throws<RouteProcessingException>(() => resolver.ResolveConstraint("custom"));
             Assert.Equal("The constraint type 'System.String' which is mapped to constraint key 'custom'" +
                          " must implement the 'IRouteConstraint' interface.",
                          ex.Message);
@@ -291,10 +298,16 @@ namespace Microsoft.AspNetCore.Routing.Tests
             var resolver = GetInlineConstraintResolver(routeOptions);
 
             // Act & Assert
-            var ex = Assert.Throws<InvalidOperationException>(() => resolver.ResolveConstraint("custom(5,6)"));
+            var ex = Assert.Throws<RouteProcessingException>(() => resolver.ResolveConstraint("custom(5,6)"));
+            Assert.Equal(
+                "An error occurred while trying to create an instance of route constraint"
+                + $" '{typeof(MultiConstructorRouteConstraint).FullName}'.",
+                ex.Message);
+
+            var innerException = Assert.IsType<RouteProcessingException>(ex.InnerException);
             Assert.Equal("The constructor to use for activating the constraint type 'MultiConstructorRouteConstraint' is ambiguous." +
                          " Multiple constructors were found with the following number of parameters: 2.",
-                         ex.Message);
+                         innerException.Message);
         }
 
         // These are cases which parsing does not catch and we'll end up here
@@ -317,10 +330,16 @@ namespace Microsoft.AspNetCore.Routing.Tests
         {
             // Arrange
             // Act & Assert
-            var ex = Assert.Throws<InvalidOperationException>(() => _constraintResolver.ResolveConstraint("int(5,6)"));
+            var ex = Assert.Throws<RouteProcessingException>(() => _constraintResolver.ResolveConstraint("int(5,6)"));
+            Assert.Equal(
+                "An error occurred while trying to create an instance of route constraint"
+                + $" '{typeof(IntRouteConstraint).FullName}'.",
+                ex.Message);
+
+            var innerException = Assert.IsType<RouteProcessingException>(ex.InnerException);
             Assert.Equal("Could not find a constructor for constraint type 'IntRouteConstraint'" +
                          " with the following number of parameters: 2.",
-                         ex.Message);
+                         innerException.Message);
         }
 
         private IInlineConstraintResolver GetInlineConstraintResolver(RouteOptions routeOptions)

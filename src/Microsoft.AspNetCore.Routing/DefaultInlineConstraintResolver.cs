@@ -69,12 +69,21 @@ namespace Microsoft.AspNetCore.Routing
 
             if (!typeof(IRouteConstraint).GetTypeInfo().IsAssignableFrom(constraintType.GetTypeInfo()))
             {
-                throw new InvalidOperationException(
+                throw new RouteProcessingException(
                             Resources.FormatDefaultInlineConstraintResolver_TypeNotConstraint(
                                                         constraintType, constraintKey, typeof(IRouteConstraint).Name));
             }
 
-            return CreateConstraint(constraintType, argumentString);
+            try
+            {
+                return CreateConstraint(constraintType, argumentString);
+            }
+            catch (Exception exception)
+            {
+                throw new RouteProcessingException(
+                    $"An error occurred while trying to create an instance of route constraint '{constraintType.FullName}'.",
+                    exception);
+            }
         }
 
         private static IRouteConstraint CreateConstraint(Type constraintType, string argumentString)
@@ -82,16 +91,7 @@ namespace Microsoft.AspNetCore.Routing
             // No arguments - call the default constructor
             if (argumentString == null)
             {
-                try
-                {
-                    return (IRouteConstraint)Activator.CreateInstance(constraintType);
-                }
-                catch (Exception exception)
-                {
-                    throw new InvalidRouteException(
-                        $"An error occurred while trying to create an instance of route constraint '{constraintType.FullName}'.",
-                        exception);
-                }
+                return (IRouteConstraint)Activator.CreateInstance(constraintType);
             }
 
             var constraintTypeInfo = constraintType.GetTypeInfo();
@@ -116,7 +116,7 @@ namespace Microsoft.AspNetCore.Routing
 
                 if (constructorMatches == 0)
                 {
-                    throw new InvalidOperationException(
+                    throw new RouteProcessingException(
                                 Resources.FormatDefaultInlineConstraintResolver_CouldNotFindCtor(
                                                        constraintTypeInfo.Name, arguments.Length));
                 }
@@ -127,7 +127,7 @@ namespace Microsoft.AspNetCore.Routing
                 }
                 else
                 {
-                    throw new InvalidOperationException(
+                    throw new RouteProcessingException(
                                 Resources.FormatDefaultInlineConstraintResolver_AmbiguousCtors(
                                                        constraintTypeInfo.Name, arguments.Length));
                 }

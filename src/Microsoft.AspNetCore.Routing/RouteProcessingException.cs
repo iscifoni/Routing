@@ -5,18 +5,16 @@ using System;
 
 namespace Microsoft.AspNetCore.Routing
 {
-    public class InvalidRouteException : Exception
+    public class RouteProcessingException : Exception
     {
-        public InvalidRouteException(string message) :
+        public RouteProcessingException(string message) :
             base(message)
         {
-
         }
 
-        public InvalidRouteException(string message, Exception innerException) :
+        public RouteProcessingException(string message, Exception innerException) :
             base(message, innerException)
         {
-
         }
     }
 }
